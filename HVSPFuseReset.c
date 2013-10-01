@@ -11,6 +11,10 @@
 #define SII _BV(5)
 #define SDI _BV(6)
 
+#define LFUSE 0xe2
+#define HFUSE 0xdf
+#define EFUSE 0x01
+
 #define SCI_PULSE	_delay_us(1); PORTD |= SCI; _delay_us(1); PORTD &= ~SCI;
 
 uint8_t hv_cmd(uint8_t *dptr, uint8_t cnt) {
@@ -48,45 +52,55 @@ uint8_t hv_cmd(uint8_t *dptr, uint8_t cnt) {
 	return sdo;
 }
 
-void reset_fuse() {
-	// enter hv mode, everything go low
+void all_low(){
 	DDRB  |= (VCC|HIV|SDO);
 	PORTB &= ~(VCC|SDO);// Vcc and data out off
 	PORTB |= HIV;		// 12v off
 	DDRD  |= (SCI|SDI|SII);
 	PORTD &= ~(SCI|SDI|SII);
-	//_delay_ms(50);
+	_delay_ms(50);
+}
 
+void init_hvsp() {
 	PORTB |= VCC;		// Vcc on
 	_delay_us(40);
 	PORTB &= ~HIV;		// turn on 12v
 	_delay_us(15);
 	DDRB  &= ~SDO;		// release SDO
 	_delay_us(300);
+}
 
+void program_fuse() {
 	uint8_t cmd[] = { 0x08, 0x4c, 0x00, 0x0c, 0x00, 0x68, 0x00, 0x6c, };
 
-	//reset fuse
 	cmd[0] = 0x40; 
 	// write fuse low bits
 	cmd[3] = 0x2c; cmd[5] = 0x64; 
-	cmd[2] = 0xe2; 					//lfuse value
+	cmd[2] = LFUSE;
 	hv_cmd(cmd, 4); 
 	_delay_ms(50);
 	// write fuse high bits
 	cmd[5] = 0x74; cmd[7] = 0x7c;
-	cmd[2] = 0xdf; 					//hfuse value
+	cmd[2] = HFUSE;
 	hv_cmd(cmd, 4); 
 	_delay_ms(50);
 	// write fuse extended bits
 	cmd[5] = 0x66; cmd[7] = 0x6e;
-	cmd[2] = 0x01; 					//efuse value
+	cmd[2] = WFUSE;
 	hv_cmd(cmd, 4); 
 	_delay_ms(50);
+}
+
+void reset_fuse() {
+	// enter hv mode, everything go low
+	all_low();
+	init_hvsp();
+
+	//reset fuse
+	program_fuse();
+	
 	// done, turn things off
-	PORTB |= HIV;
-	PORTB &= ~(VCC|SDO);
-	PORTD &= ~(SCI|SDI|SII);
+	all_low();
 }
 
 void main(void) {
