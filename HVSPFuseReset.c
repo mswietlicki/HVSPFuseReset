@@ -86,7 +86,7 @@ void program_fuse() {
 	_delay_ms(50);
 	// write fuse extended bits
 	cmd[5] = 0x66; cmd[7] = 0x6e;
-	cmd[2] = WFUSE;
+	cmd[2] = EFUSE;
 	hv_cmd(cmd, 4); 
 	_delay_ms(50);
 }
@@ -104,7 +104,7 @@ void reset_fuse() {
 }
 
 void main(void) {
-	DDRA = PORTA = 0;
+	DDRB = PORTB = 0;
 	DDRD = PORTD = 0;
 	DDRB   = (VCC|HIV|SDO);
 	PORTB  = HIV;		// 12v off
