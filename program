@@ -1,0 +1,8 @@
+#!/bin/bash
+rm HVSPFuseReset.o HVSPFuseReset.elf HVSPFuseReset.hex
+
+avr-gcc -Os -DF_CPU=8000000UL -mmcu=atmega8 -c HVSPFuseReset.c
+avr-gcc -mmcu=atmega8 -o HVSPFuseReset.elf HVSPFuseReset.o 
+avr-objcopy -O ihex -R .eeprom HVSPFuseReset.elf HVSPFuseReset.hex
+
+sudo avrdude -p m8 -c usbasp -P usb -U lfuse:w:0xa4:m -U hfuse:w:0xd9:m -U flash:w:HVSPFuseReset.hex
