@@ -3,13 +3,13 @@
 #include <avr/io.h>
 #include <util/delay.h>
 
-#define HIV	_BV(7)	
-#define VCC	_BV(6)	
-#define SDO _BV(0)
+#define HIV	_BV(5)	//B -> Transistor base
+#define VCC	_BV(4)	//B -> Target pin 8 Vcc
+#define SDO _BV(3)	//B -> Target pin 7
 
-#define SCI _BV(0)
-#define SII _BV(5)
-#define SDI _BV(6)
+#define SCI _BV(0)	//D -> Target pin 2
+#define SII _BV(1)	//D -> Target pin 6
+#define SDI _BV(2)	//D -> Target pin 5
 
 #define LFUSE 0xe2
 #define HFUSE 0xdf
