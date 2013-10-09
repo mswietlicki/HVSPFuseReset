@@ -11,45 +11,59 @@
 #define SII _BV(1)	//D -> Target pin 6
 #define SDI _BV(2)	//D -> Target pin 5
 
+
+
 #define LFUSE 0xe2
 #define HFUSE 0xdd
 #define EFUSE 0x01
 
-#define SCI_PULSE	_delay_us(1); PORTD |= SCI; _delay_us(1); PORTD &= ~SCI;
+#define SetBit(var,pos,val) if(val) var |= _BV(pos); else var &= ~_BV(pos)
+#define GetBit(var,pos) ((var) & (1<<(pos)))
 
-uint8_t hv_cmd(uint8_t *dptr, uint8_t cnt) {
-	// data format is like write 0_DDDD_DDDD_00
-	//                      read D_DDDD_DDDx_xx
-	uint8_t sdo=0x00;
-	while (cnt) {
-		uint8_t sdi = *dptr++;
-		uint8_t sii = *dptr++;
-		uint8_t cmp=0x80;
+#define SCI_PULSE	_delay_us(1); PORTD |= SCI; _delay_us(1); PORTD &= ~SCI
 
-		sdo = 0x00;
-		PORTD &= ~(SDI|SII);
-		SCI_PULSE;
 
-		// 0x1e92 06
-		// 0x62df	b0110 0010 1101 1111
-		while (cmp) {
-			sdo <<= 1;
-			if (PINB&SDO) sdo |= 0x01;
-			PORTD &= ~(SDI|SII);
-			if (cmp&sdi) PORTD |= SDI;
-			if (cmp&sii) PORTD |= SII;
-			SCI_PULSE;
-			cmp >>= 1;
-		}
+inline uint8_t HVSPBit(uint8_t instrBit, uint8_t dataBit) {
+	SetBit(PORTD, SII, instrBit);
+	SetBit(PORTD, SDI, dataBit);
+	SCI_PULSE;
+	return GetBit(PINB, SDO)
+}
 
-		PORTD &= ~(SDI|SII);
-		SCI_PULSE;
-		SCI_PULSE;
-		_delay_us(100);
-		cnt--;
+static void HVSPTransfer(uint8_t instrIn, uint8_t dataIn) {
+	//
+	// First bit, data out only
+	//
+	uint8_t dataOut = HVSPBit(0, 0);
+
+	//
+	// Next bits, data in/out
+	//
+	uint8_t i = 0;
+	for (i = 0; i < 7; ++i) {
+		HVSPBit((instrIn & 0x80) != 0, (dataIn & 0x80) != 0);
+		instrIn <<= 1;
+		dataIn  <<= 1;
 	}
+	//
+	// Last data out bit
+	//
+	HVSPBit(instrIn & 0x80, dataIn & 0x80);
 
-	return sdo;
+	//
+	// Two stop bits
+	//
+	HVSPBit(0, 0);
+	HVSPBit(0, 0);
+}
+
+static void ProgramFuseLock(uint8_t d0, uint8_t value, uint8_t i2, uint8_t i3)
+{
+	HVSPTransfer(0x4C, d0);
+	HVSPTransfer(0x2C, value);
+	HVSPTransfer(i2, 0x00);
+	HVSPTransfer(i3, 0x00);
+	_delay_ms(50);
 }
 
 void all_low(){
@@ -63,7 +77,7 @@ void all_low(){
 
 void init_hvsp() {
 	PORTB |= VCC;		// Vcc on
-	_delay_us(40);
+	_delay_us(80);
 	PORTB &= ~HIV;		// turn on 12v
 	_delay_us(15);
 	DDRB  &= ~SDO;		// release SDO
@@ -71,24 +85,10 @@ void init_hvsp() {
 }
 
 void program_fuse() {
-	uint8_t cmd[] = { 0x08, 0x4c, 0x00, 0x0c, 0x00, 0x68, 0x00, 0x6c, };
 
-	cmd[0] = 0x40; 
-	// write fuse low bits
-	cmd[3] = 0x2c; cmd[5] = 0x64; 
-	cmd[2] = LFUSE;
-	hv_cmd(cmd, 4); 
-	_delay_ms(50);
-	// write fuse high bits
-	cmd[5] = 0x74; cmd[7] = 0x7c;
-	cmd[2] = HFUSE;
-	hv_cmd(cmd, 4); 
-	_delay_ms(50);
-	// write fuse extended bits
-	cmd[5] = 0x66; cmd[7] = 0x6e;
-	cmd[2] = EFUSE;
-	hv_cmd(cmd, 4); 
-	_delay_ms(50);
+	ProgramFuseLock(0x40, LFUSE, 0x64, 0x6C);
+	ProgramFuseLock(0x40, HFUSE, 0x74, 0x7C);
+	ProgramFuseLock(0x40, EFUSE, 0x66, 0x6E);
 }
 
 void reset_fuse() {
@@ -98,7 +98,7 @@ void reset_fuse() {
 
 	//reset fuse
 	program_fuse();
-	
+
 	// done, turn things off
 	all_low();
 }
@@ -108,10 +108,10 @@ void main(void) {
 	DDRD = PORTD = 0;
 	DDRB   = (VCC|HIV|SDO);
 	PORTB  = HIV;		// 12v off
-	_delay_ms(1000);
+	_delay_ms(100);
 
 	reset_fuse();
-	
+
 	while (1) { }
 }
 
