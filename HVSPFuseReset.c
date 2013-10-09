@@ -12,7 +12,7 @@
 #define SDI _BV(2)	//D -> Target pin 5
 
 #define LFUSE 0xe2
-#define HFUSE 0xdf
+#define HFUSE 0xdd
 #define EFUSE 0x01
 
 #define SCI_PULSE	_delay_us(1); PORTD |= SCI; _delay_us(1); PORTD &= ~SCI;
@@ -108,7 +108,7 @@ void main(void) {
 	DDRD = PORTD = 0;
 	DDRB   = (VCC|HIV|SDO);
 	PORTB  = HIV;		// 12v off
-	_delay_ms(100);
+	_delay_ms(1000);
 
 	reset_fuse();
 	
